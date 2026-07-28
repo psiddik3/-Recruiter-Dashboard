@@ -1,0 +1,11 @@
+  if (currentView === "public-home" || urlPath.startsWith("/home")) {
+    return (
+      <PublicHomepageView 
+        jobs={jobs}
+        teamRecruiters={teamRecruiters}
+        companyName={companyName}
+        companyLogo={companyLogo}
+      />
+    );
+  }
+

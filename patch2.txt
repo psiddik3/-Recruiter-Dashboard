@@ -1,0 +1,4 @@
+                    <a 
+                      href={`/apply?jobId=${job.id}${new URLSearchParams(window.location.search).get("recruiterId") ? `&recruiterId=${new URLSearchParams(window.location.search).get("recruiterId")}` : ""}`}
+                      className="inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-colors whitespace-nowrap"
+                    >
