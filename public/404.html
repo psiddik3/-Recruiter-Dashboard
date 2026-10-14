@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Career Portal</title>
+    <script>
+      // Single Page App fallback for Netlify and static hosting
+      var path = window.location.pathname;
+      var search = window.location.search;
+      var hash = window.location.hash;
+      // If user landed on /apply or 404 path with jobId, redirect smoothly to root with query
+      if (search || hash || path.indexOf('apply') !== -1) {
+        window.location.replace('/' + search + hash);
+      } else {
+        window.location.replace('/');
+      }
+    </script>
+  </head>
+  <body>
+    <div style="font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; color: #475569;">
+      <p>Loading application...</p>
+    </div>
+  </body>
+</html>

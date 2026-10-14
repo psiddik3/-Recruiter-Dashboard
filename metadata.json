@@ -1,0 +1,6 @@
+{
+  "name": "Recruit CRM",
+  "description": "A premium recruitment CRM and ATS workspace with custom poster builder, ATS stage matching, and comprehensive candidate CRM features.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

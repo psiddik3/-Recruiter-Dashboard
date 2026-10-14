@@ -1,0 +1,2 @@
+sed -i '/\/\/ Load real-time candidates from Firestore/i \
+  \/\/ Load real-time global configuration from Firestore\n  useEffect(() => {\n    const unsubscribe = configDb.subscribe((config) => {\n      if (config) {\n        if (config.companyName) setCompanyName(config.companyName);\n        if (config.companyLogo) setCompanyLogo(config.companyLogo);\n        if (config.teamRecruiters) setTeamRecruiters(config.teamRecruiters);\n      }\n    });\n    return () => unsubscribe();\n  }, []);\n' src/App.tsx

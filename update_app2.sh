@@ -1,0 +1,3 @@
+sed -i 's/localStorage.setItem("recruit_crm_team_recruiters_v2", JSON.stringify(updated));/localStorage.setItem("recruit_crm_team_recruiters_v2", JSON.stringify(updated)); configDb.save({ teamRecruiters: updated });/g' src/App.tsx
+sed -i 's/localStorage.setItem("recruit_crm_company_name", updated.company);/localStorage.setItem("recruit_crm_company_name", updated.company); configDb.save({ companyName: updated.company });/g' src/App.tsx
+sed -i 's/localStorage.setItem("recruit_crm_company_logo", logo);/localStorage.setItem("recruit_crm_company_logo", logo); configDb.save({ companyLogo: logo });/g' src/App.tsx
