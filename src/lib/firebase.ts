@@ -302,7 +302,7 @@ export const portalDb = {
     if (!db) return undefined;
     const colRef = collection(db, JOBS_COLLECTION);
     const recName = data.postedBy || "Rahul Sharma";
-    const applyPath = data.externalApplyUrl?.trim() || `https://recruiter.spredone.in/apply?jobId=${data.id}${data.recruiterId ? `&recruiterId=${data.recruiterId}` : ""}`;
+    const applyPath = `https://recruiter.spredone.in/apply?jobId=${data.id}${data.recruiterId ? `&recruiterId=${data.recruiterId}` : ""}`;
 
     const docRef = await addDoc(colRef, cleanFirestoreData({
       company: data.company || "Your Company",

@@ -69,25 +69,27 @@ export default function CandidateApplyView({
   const [directFetchedJob, setDirectFetchedJob] = useState<Job | null>(null);
 
   React.useEffect(() => {
-    if (qJobId && !jobs.some(j => String(j.id) === String(qJobId))) {
+    if (qJobId && !jobs.some(j => String(j.id) === String(qJobId) || String(j.firebaseId) === String(qJobId))) {
       // Fetch specifically this job from Firestore immediately
       portalDb.loadAll().then(fbJobs => {
         const match = fbJobs.find(fj => {
-          let numId = fj.id ? parseInt(fj.id.replace(/\D/g, "").slice(-8)) : null;
+          let numId = (fj as any).crmJobId ? Number((fj as any).crmJobId) : (fj.id ? parseInt(fj.id.replace(/\D/g, "").slice(-8)) : null);
           if (fj.applyLink && fj.applyLink.includes("jobId=")) {
             const m = fj.applyLink.match(/jobId=(\d+)/);
             if (m && m[1]) numId = parseInt(m[1], 10);
           }
-          return String(fj.id) === String(qJobId) || String(numId) === String(qJobId);
+          return String(fj.id) === String(qJobId) || String(numId) === String(qJobId) || String((fj as any).crmJobId) === String(qJobId);
         });
 
         if (match) {
-          let numId = match.id ? parseInt(match.id.replace(/\D/g, "").slice(-8)) || Number(qJobId) : Number(qJobId);
+          let numId = (match as any).crmJobId ? Number((match as any).crmJobId) : (match.id ? parseInt(match.id.replace(/\D/g, "").slice(-8)) || Number(qJobId) : Number(qJobId));
           if (match.applyLink && match.applyLink.includes("jobId=")) {
             const m = match.applyLink.match(/jobId=(\d+)/);
             if (m && m[1]) numId = parseInt(m[1], 10);
           }
           const m = match as any;
+          const recoveredExternalUrl = m.externalApplyUrl || 
+            (m.applyLink && !m.applyLink.includes("recruiter.spredone.in") && !m.applyLink.includes("jobId=") && m.applyLink.startsWith("http") ? m.applyLink : undefined);
           const loadedJob: Job = {
             id: numId,
             firebaseId: m.id,
@@ -111,7 +113,8 @@ export default function CandidateApplyView({
             screeningQuestions: m.screeningQuestions,
             views: 100,
             applications: 0,
-            conversion: "0.0%"
+            conversion: "0.0%",
+            externalApplyUrl: recoveredExternalUrl
           };
           setDirectFetchedJob(loadedJob);
         }
@@ -121,7 +124,7 @@ export default function CandidateApplyView({
     }
   }, [qJobId, jobs]);
 
-  const selectedJob = jobs.find(j => String(j.id) === String(selectedJobId)) || 
+  const selectedJob = jobs.find(j => String(j.id) === String(selectedJobId) || String(j.firebaseId) === String(selectedJobId)) || 
                       directFetchedJob ||
                       INITIAL_JOBS.find(j => String(j.id) === String(selectedJobId)) ||
                       (!qJobId ? (jobs[0] || INITIAL_JOBS[0]) : null);

@@ -955,13 +955,15 @@ ${adminCompanyName || "Your Company Admin"} Network`);
         const primaryName = primaryRecruiter ? primaryRecruiter.name : "Siddharth";
 
         const mappedJobs: Job[] = firebaseJobs.map((fj: any, idx: number) => {
-          let numId = fj.id ? parseInt(fj.id.replace(/\D/g, "").slice(-8)) || (9000 + idx) : (9000 + idx);
+          let numId = fj.crmJobId ? Number(fj.crmJobId) : (fj.id ? parseInt(fj.id.replace(/\D/g, "").slice(-8)) || (9000 + idx) : (9000 + idx));
           if (fj.applyLink && fj.applyLink.includes("jobId=")) {
             const match = fj.applyLink.match(/jobId=(\d+)/);
             if (match && match[1]) {
               numId = parseInt(match[1], 10);
             }
           }
+          const recoveredExternalUrl = fj.externalApplyUrl || 
+            (fj.applyLink && !fj.applyLink.includes("recruiter.spredone.in") && !fj.applyLink.includes("jobId=") && fj.applyLink.startsWith("http") ? fj.applyLink : undefined);
           return {
             id: numId,
             firebaseId: fj.id,
@@ -985,7 +987,8 @@ ${adminCompanyName || "Your Company Admin"} Network`);
             screeningQuestions: fj.screeningQuestions,
             views: 120,
             applications: 0,
-            conversion: "0.0%"
+            conversion: "0.0%",
+            externalApplyUrl: recoveredExternalUrl
           };
         });
 
@@ -1009,7 +1012,8 @@ ${adminCompanyName || "Your Company Admin"} Network`);
                 status: currentJob.status || mj.status,
                 expiresAt: currentJob.expiresAt || mj.expiresAt,
                 durationDays: currentJob.durationDays || mj.durationDays,
-                createdAt: currentJob.createdAt || mj.createdAt
+                createdAt: currentJob.createdAt || mj.createdAt,
+                externalApplyUrl: currentJob.externalApplyUrl || mj.externalApplyUrl
               };
             } else if (mj.status === "active") {
               merged.push({
