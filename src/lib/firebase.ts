@@ -113,6 +113,8 @@ export interface FirebaseJob {
   description: string;
   applyLink?: string;
   externalApplyUrl?: string;
+  screeningQuestions?: string[];
+  crmJobId?: number | string;
   lastDate?: string;
   durationDays?: number;
   expiresAt?: string;
@@ -321,8 +323,9 @@ export const portalDb = {
       externalApplyUrl: data.externalApplyUrl || null,
       crmJobId: data.id,
       durationDays: data.durationDays || 15,
-      expiresAt: data.expiresAt || new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+      expiresAt: data.expiresAt || new Date(Date.now() + (data.durationDays || 15) * 24 * 60 * 60 * 1000).toISOString(),
       status: "approved", // Automatically active jobs in CRM are approved in portal
+      screeningQuestions: data.screeningQuestions && data.screeningQuestions.length > 0 ? data.screeningQuestions : null,
       createdAt: new Date().toISOString(),
       postedByFounder: data.postedBy === "Rahul Sharma",
       postedBy: recName,

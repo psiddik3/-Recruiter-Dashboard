@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   Briefcase, MapPin, DollarSign, Calendar, Sparkles, 
   Trash2, Send, Share2, Clipboard, Loader2, Edit2, ArrowRight,
   ArrowUp, ArrowDown, Plus, X, Check, Image as ImageIcon,
   Copy, Globe, Linkedin, MessageCircle, ExternalLink,
   ChevronDown, ChevronUp, Cpu, Brain, Laptop, Layers,
-  Maximize2, Minimize2, AlertCircle, Clock, RotateCcw, RefreshCw } from "lucide-react";
+  Maximize2, Minimize2, AlertCircle, Clock, RotateCcw, RefreshCw, CheckCircle2 } from "lucide-react";
 import { Job, Candidate } from "../types";
 import { portalDb } from "../lib/firebase";
 
@@ -234,9 +234,28 @@ export default function JobsView({
     setExternalApplyUrl(job.externalApplyUrl || "");
     setExperience(normalizeExperience(job.experience));
     setSkillsString((job.skills || []).join(", "));
-    setDescription(formatSentenceCapitalization(job.description || ""));
+    const cleanDesc = (job.description || "").replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    setDescription(cleanDesc);
+    setTimeout(() => {
+      if (descEditorRef.current) descEditorRef.current.innerHTML = cleanDesc;
+    }, 0);
     setBenefits(job.benefits || "Health insurance, Unlimited PTO, Work stipend");
-    setDurationDays(job.durationDays ? job.durationDays.toString() : "15");
+    if (job.durationDays) {
+      const dStr = job.durationDays.toString();
+      if (["1", "2", "3", "4", "5", "7", "10", "15", "30"].includes(dStr)) {
+        setDurationDays(dStr);
+        setIsCustomDuration(false);
+        setCustomDurationDays(dStr);
+      } else {
+        setDurationDays("custom");
+        setIsCustomDuration(true);
+        setCustomDurationDays(dStr);
+      }
+    } else {
+      setDurationDays("15");
+      setIsCustomDuration(false);
+      setCustomDurationDays("15");
+    }
     setDeadline(job.deadline || "");
     if (job.screeningQuestions && job.screeningQuestions.length > 0) {
       setEnableScreening(true);
@@ -269,8 +288,21 @@ export default function JobsView({
   const [description, setDescription] = useState("");
   const [benefits, setBenefits] = useState("Health insurance, Unlimited PTO, Work stipend");
   const [durationDays, setDurationDays] = useState("15");
+  const [isCustomDuration, setIsCustomDuration] = useState(false);
+  const [customDurationDays, setCustomDurationDays] = useState("7");
   const [deadline, setDeadline] = useState("");
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+
+  const descEditorRef = useRef<HTMLDivElement>(null);
+  const fullscreenDescEditorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (feedbackMessage) {
+      const t = setTimeout(() => setFeedbackMessage(""), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [feedbackMessage]);
 
   // Screening questions local builder state (default OFF)
   const [enableScreening, setEnableScreening] = useState(false);
@@ -301,7 +333,10 @@ export default function JobsView({
 
       if (!response.ok) throw new Error("API failed");
       const data = await response.json();
-      setDescription(data.jd);
+      const formattedJd = (data.jd || "").replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      setDescription(formattedJd);
+      if (descEditorRef.current) descEditorRef.current.innerHTML = formattedJd;
+      if (fullscreenDescEditorRef.current) fullscreenDescEditorRef.current.innerHTML = formattedJd;
     } catch (err) {
       console.error(err);
       setAiGenerateError("Could not connect to AI server. Please make sure GEMINI_API_KEY is configured.");
@@ -317,63 +352,13 @@ export default function JobsView({
     }
   };
 
-  const applyBoldToTextarea = (elementId: string) => {
-    const textarea = document.getElementById(elementId) as HTMLTextAreaElement;
-    if (!textarea) return;
-    
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const text = description;
-
-    if (start !== undefined && end !== undefined) {
-      let wordStart = start;
-      let wordEnd = end;
-
-      // If selection is inside a word, expand start and end to the full word boundaries
-      // Walk backwards to find the start of the word
-      while (wordStart > 0 && /[\w\d]/.test(text[wordStart - 1])) {
-        wordStart--;
-      }
-
-      // Walk forwards to find the end of the word
-      while (wordEnd < text.length && /[\w\d]/.test(text[wordEnd])) {
-        wordEnd++;
-      }
-
-      const selectedPart = text.substring(wordStart, wordEnd);
-      
-      if (selectedPart.trim()) {
-        // Check if already bolded (i.e. surrounded by double asterisks)
-        const isBolded = wordStart >= 2 && text.substring(wordStart - 2, wordStart) === "**" && text.substring(wordEnd, wordEnd + 2) === "**";
-        
-        if (isBolded) {
-          // Unbold: remove the asterisks
-          const newText = text.substring(0, wordStart - 2) + selectedPart + text.substring(wordEnd + 2);
-          setDescription(newText);
-          setTimeout(() => {
-            textarea.focus();
-            textarea.setSelectionRange(wordStart - 2, wordEnd - 2);
-          }, 0);
-        } else {
-          // Bold: add asterisks
-          const newText = text.substring(0, wordStart) + "**" + selectedPart + "**" + text.substring(wordEnd);
-          setDescription(newText);
-          setTimeout(() => {
-            textarea.focus();
-            textarea.setSelectionRange(wordStart, wordEnd + 4);
-          }, 0);
-        }
-      } else {
-        // If cursor is on empty space, insert standard "**bold text**"
-        const newText = text.substring(0, start) + "**bold text**" + text.substring(start);
-        setDescription(newText);
-        setTimeout(() => {
-          textarea.focus();
-          textarea.setSelectionRange(start + 2, start + 11);
-        }, 0);
-      }
-    } else {
-      setDescription(description + "**bold text**");
+  const formatSelectionBold = () => {
+    document.execCommand("bold", false);
+    if (descEditorRef.current) {
+      setDescription(descEditorRef.current.innerHTML);
+    }
+    if (fullscreenDescEditorRef.current) {
+      setDescription(fullscreenDescEditorRef.current.innerHTML);
     }
   };
 
@@ -423,8 +408,8 @@ export default function JobsView({
       description: formatSentenceCapitalization(description.trim()),
       benefits,
       deadline,
-      durationDays: editingJob && editingJob.durationDays ? editingJob.durationDays : (parseInt(durationDays) || 15),
-      expiresAt: editingJob && editingJob.expiresAt ? editingJob.expiresAt : new Date(Date.now() + (parseInt(durationDays) || 15) * 24 * 60 * 60 * 1000).toISOString(),
+      durationDays: isCustomDuration ? (parseInt(customDurationDays) || 1) : (parseInt(durationDays) || 15),
+      expiresAt: new Date(Date.now() + (isCustomDuration ? (parseInt(customDurationDays) || 1) : (parseInt(durationDays) || 15)) * 24 * 60 * 60 * 1000).toISOString(),
       status,
       postedBy: editingJob ? editingJob.postedBy : (recruiterName || "Rahul Sharma"),
       createdAt: editingJob ? editingJob.createdAt : new Date().toISOString().slice(0, 10),
@@ -451,6 +436,7 @@ export default function JobsView({
         durationDays: jobObj.durationDays,
         expiresAt: jobObj.expiresAt,
         externalApplyUrl: jobObj.externalApplyUrl || null,
+        screeningQuestions: jobObj.screeningQuestions || null,
         status: jobObj.status === "active" ? "approved" : "rejected"
       }).then(syncedFbId => {
         if (syncedFbId && !jobObj.firebaseId) {
@@ -458,8 +444,10 @@ export default function JobsView({
           onUpdateJobs(patched);
         }
       }).catch(err => console.warn("Failed updating portal job:", err));
+      setFeedbackMessage(`✓ Job "${jobObj.title}" successfully updated!`);
     } else {
       onAddJob(jobObj);
+      setFeedbackMessage(`✓ Job "${jobObj.title}" successfully posted!`);
     }
     resetForm();
     setShowModal(false);
@@ -483,6 +471,11 @@ export default function JobsView({
     setExperience("Fresher");
     setSkillsString("React, Node.js, TypeScript, Tailwind CSS");
     setDescription("");
+    if (descEditorRef.current) descEditorRef.current.innerHTML = "";
+    if (fullscreenDescEditorRef.current) fullscreenDescEditorRef.current.innerHTML = "";
+    setDurationDays("15");
+    setIsCustomDuration(false);
+    setCustomDurationDays("15");
     setBenefits("Health insurance, Unlimited PTO, Work stipend");
     setDeadline("2026-08-30");
     setEnableScreening(false);
@@ -849,7 +842,7 @@ export default function JobsView({
                     <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
                       <Clock className="w-3.5 h-3.5 text-indigo-500" />
                       <span>
-                        15-Day Live Window: <strong className={getDaysRemaining(job) > 0 && job.status === "active" ? "text-indigo-600 font-bold" : "text-rose-600 font-bold"}>
+                        {job.durationDays || 15}-Day Live Window: <strong className={getDaysRemaining(job) > 0 && job.status === "active" ? "text-indigo-600 font-bold" : "text-rose-600 font-bold"}>
                           {getDaysRemaining(job) > 0 && job.status === "active" ? `${getDaysRemaining(job)} ${getDaysRemaining(job) === 1 ? 'Day' : 'Days'} Left` : 'Posting Stopped (Expired)'}
                         </strong>
                       </span>
@@ -1061,64 +1054,43 @@ export default function JobsView({
               </div>
             </div>
             
-            <div className="flex-1 bg-slate-50 flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-slate-200 overflow-hidden">
-              {/* Left Column: Editor */}
-              <div className="flex-1 p-6 flex flex-col min-w-[320px]">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-black text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                    Text Editor
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-slate-400 font-medium">Select text to format:</span>
-                    <button
-                      type="button"
-                      onClick={() => applyBoldToTextarea("fullscreen-job-desc-textarea")}
-                      className="text-[10px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg font-bold border border-indigo-200 flex items-center gap-1 transition-colors focus:outline-none shadow-sm cursor-pointer"
-                    >
-                      <strong className="font-black text-xs leading-none">B</strong> Bold
-                    </button>
-                  </div>
-                </div>
-                <textarea autoCapitalize="sentences"
-                  id="fullscreen-job-desc-textarea"
-                  value={description}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setDescription(val.length === 1 ? val.toUpperCase() : val);
-                  }}
-                  onKeyDown={(e) => {
-                    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
-                      e.preventDefault();
-                      applyBoldToTextarea("fullscreen-job-desc-textarea");
-                    }
-                  }}
-                  onBlur={() => setDescription(formatSentenceCapitalization(description))}
-                  placeholder="Write a professional, attractive, and highly human-touch Job Description..."
-                  className="w-full flex-1 border border-slate-200 rounded-2xl p-5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white font-mono text-slate-800 leading-relaxed shadow-sm resize-none"
-                ></textarea>
-              </div>
-
-              {/* Right Column: Live Preview */}
-              <div className="flex-1 p-6 flex flex-col min-w-[320px] overflow-y-auto bg-white">
-                <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
-                  <span className="text-xs font-black text-indigo-600 uppercase tracking-wider flex items-center gap-1.5">
-                    ✨ Live Formatted Preview
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-extrabold uppercase">Applicant View</span>
-                </div>
-                <div className="text-sm text-slate-700 leading-relaxed font-medium whitespace-pre-wrap py-2">
-                  {description ? (
-                    description.split(/\*\*(.*?)\*\*/g).map((part, i) => i % 2 === 1 ? <strong key={i} className="font-extrabold text-slate-950">{part}</strong> : part)
-                  ) : (
-                    <span className="text-slate-300 italic">Start typing on the left to see the formatted preview here...</span>
-                  )}
+            <div className="flex-1 bg-white p-6 flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
+                <span className="text-xs font-black text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                  Job Description Document Editor
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={formatSelectionBold}
+                    className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg font-bold border border-indigo-200 flex items-center gap-1 transition-colors focus:outline-none shadow-sm cursor-pointer"
+                  >
+                    <strong className="font-black text-sm leading-none">B</strong> Bold (Ctrl+B)
+                  </button>
                 </div>
               </div>
+              
+              <div
+                ref={fullscreenDescEditorRef}
+                contentEditable
+                onInput={(e) => setDescription(e.currentTarget.innerHTML)}
+                onBlur={(e) => setDescription(e.currentTarget.innerHTML)}
+                data-placeholder="Write a professional, attractive, and highly human-touch Job Description..."
+                className="w-full flex-1 border border-slate-200 rounded-2xl p-6 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-slate-50/30 text-slate-800 leading-relaxed overflow-y-auto whitespace-pre-wrap empty:before:content-[attr(data-placeholder)] empty:before:text-slate-400 empty:before:pointer-events-none [&>strong]:font-extrabold [&>strong]:text-slate-950 [&>b]:font-extrabold [&>b]:text-slate-950"
+              />
             </div>
             
             <div className="px-6 py-4 border-t border-slate-100 bg-white flex justify-end gap-3">
               <button
-                onClick={() => setIsDescriptionExpanded(false)}
+                type="button"
+                onClick={() => {
+                  setIsDescriptionExpanded(false);
+                  setTimeout(() => {
+                    if (descEditorRef.current) {
+                      descEditorRef.current.innerHTML = description;
+                    }
+                  }, 0);
+                }}
                 className="px-6 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors shadow-sm cursor-pointer"
               >
                 Done Editing
@@ -1356,14 +1328,43 @@ export default function JobsView({
                       Active Duration (Days)
                     </label>
                     <select
-                      value={durationDays}
-                      onChange={(e) => setDurationDays(e.target.value)}
+                      value={isCustomDuration ? "custom" : durationDays}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "custom") {
+                          setIsCustomDuration(true);
+                        } else {
+                          setIsCustomDuration(false);
+                          setDurationDays(val);
+                        }
+                      }}
                       className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 bg-slate-50/50 text-slate-800"
                     >
+                      <option value="1">1 Day (24 Hours)</option>
+                      <option value="2">2 Days</option>
+                      <option value="3">3 Days</option>
+                      <option value="4">4 Days</option>
                       <option value="5">5 Days</option>
+                      <option value="7">7 Days (1 Week)</option>
                       <option value="10">10 Days</option>
-                      <option value="15">15 Days (Maximum Period)</option>
+                      <option value="15">15 Days</option>
+                      <option value="30">30 Days (1 Month)</option>
+                      <option value="custom">Custom Duration (Choose days)...</option>
                     </select>
+                    {isCustomDuration && (
+                      <div className="mt-2 flex items-center gap-2 animate-in fade-in duration-150">
+                        <input
+                          type="number"
+                          min={1}
+                          max={90}
+                          value={customDurationDays}
+                          onChange={(e) => setCustomDurationDays(e.target.value)}
+                          className="w-24 border border-indigo-300 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white text-slate-800"
+                          placeholder="Days"
+                        />
+                        <span className="text-[11px] font-bold text-slate-500">Days (1 - 90 Days)</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1419,6 +1420,12 @@ export default function JobsView({
                       placeholder="Add custom question (e.g. Do you have experience with Drizzle ORM?)"
                       value={newQuestion}
                       onChange={(e) => setNewQuestion(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddQuestion();
+                        }
+                      }}
                       className="flex-1 border border-slate-200 bg-white rounded-xl px-3 py-2 text-xs focus:outline-none"
                     />
                     <button
@@ -1454,49 +1461,37 @@ export default function JobsView({
                     <div className="flex gap-2">
                       <button
                         type="button"
-                        onClick={() => applyBoldToTextarea("job-desc-textarea")}
+                        onClick={formatSelectionBold}
                         className="text-[10px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2.5 py-1.5 rounded-lg font-bold border border-indigo-200 flex items-center gap-1 transition-colors focus:outline-none cursor-pointer"
+                        title="Bold Selected Text (Ctrl+B)"
                       >
                         <strong className="font-extrabold text-sm leading-none">B</strong> Bold
                       </button>
                       <button
                         type="button"
-                        onClick={() => setIsDescriptionExpanded(true)}
+                        onClick={() => {
+                          setIsDescriptionExpanded(true);
+                          setTimeout(() => {
+                            if (fullscreenDescEditorRef.current) {
+                              fullscreenDescEditorRef.current.innerHTML = description;
+                            }
+                          }, 0);
+                        }}
                         className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-2.5 py-1.5 rounded-lg font-bold border border-slate-200 flex items-center gap-1 transition-colors focus:outline-none cursor-pointer"
                       >
                         <Maximize2 className="w-3.5 h-3.5" /> Full Screen
                       </button>
                     </div>
                   </div>
-                  <textarea autoCapitalize="sentences"
-                    id="job-desc-textarea"
-                    rows={12}
-                    value={description}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setDescription(val.length === 1 ? val.toUpperCase() : val);
-                    }}
-                    onBlur={() => setDescription(formatSentenceCapitalization(description))}
-                    onKeyDown={(e) => {
-                      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
-                        e.preventDefault();
-                        applyBoldToTextarea("job-desc-textarea");
-                      }
-                    }}
-                    placeholder="Provide a description of the responsibilities and requirements..."
-                    className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 bg-slate-50/50 font-mono text-slate-700 resize-y min-h-[160px]"
-                  ></textarea>
 
-                  {description && (
-                    <div className="mt-2 bg-indigo-50/20 border border-indigo-100/50 rounded-xl p-3">
-                      <span className="block text-[9px] font-black text-indigo-500 uppercase tracking-wider mb-1">
-                        ✨ Live Formatted Preview (Candidate View)
-                      </span>
-                      <div className="text-[11px] text-slate-600 leading-relaxed font-semibold whitespace-pre-wrap max-h-[150px] overflow-y-auto bg-white p-2 rounded-lg border border-slate-100">
-                        {description.split(/\*\*(.*?)\*\*/g).map((part, i) => i % 2 === 1 ? <strong key={i} className="font-extrabold text-slate-950">{part}</strong> : part)}
-                      </div>
-                    </div>
-                  )}
+                  <div
+                    ref={descEditorRef}
+                    contentEditable
+                    onInput={(e) => setDescription(e.currentTarget.innerHTML)}
+                    onBlur={(e) => setDescription(e.currentTarget.innerHTML)}
+                    data-placeholder="Provide a description of the responsibilities and requirements..."
+                    className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 bg-white text-slate-800 min-h-[160px] max-h-[360px] leading-relaxed overflow-y-auto whitespace-pre-wrap empty:before:content-[attr(data-placeholder)] empty:before:text-slate-400 empty:before:pointer-events-none [&>strong]:font-extrabold [&>strong]:text-slate-950 [&>b]:font-extrabold [&>b]:text-slate-950 shadow-2xs"
+                  />
                 </div>
 
                 <div>
@@ -1674,6 +1669,14 @@ export default function JobsView({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Real-time Confirmation Toast */}
+      {feedbackMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs font-bold animate-in slide-in-from-bottom-3 duration-200">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          <span>{feedbackMessage}</span>
         </div>
       )}
     </div>

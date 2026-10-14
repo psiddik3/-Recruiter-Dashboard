@@ -185,12 +185,12 @@ export default function CandidateApplyView({
             <Lock className="w-8 h-8 text-rose-500" />
           </div>
           <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight mb-3">
-            {selectedJob?.status === "closed" ? "Job Posting Stopped by Recruiter" : "15-Day Live Posting Expired"}
+            {selectedJob?.status === "closed" ? "Job Posting Stopped by Recruiter" : `${selectedJob?.durationDays || 15}-Day Live Posting Expired`}
           </h2>
           <p className="text-slate-500 text-sm leading-relaxed mb-8">
             {selectedJob?.status === "closed" 
               ? `The recruiter has manually stopped this job position at ${actualCompanyName}. Applications are currently disabled.`
-              : `Job listings are live for a maximum 15-day duration. This posting has reached its 15-day limit and is no longer accepting new applications.`}
+              : `This job posting has reached its ${selectedJob?.durationDays || 15}-day duration limit and is no longer accepting new applications.`}
           </p>
           <a href="/" className="inline-flex items-center justify-center bg-slate-900 text-white rounded-xl px-6 py-3 text-sm font-bold shadow-md hover:bg-slate-800 transition-colors">
             Return to Career Portal
@@ -978,9 +978,11 @@ ACADEMIC DEGREES & CERTIFICATIONS
                   <div className="flex items-start gap-2 sm:gap-2.5 text-slate-600 min-w-[120px] sm:min-w-[140px] flex-1">
                     <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-indigo-500 mt-0.5" />
                     <div>
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider leading-none mb-0.5 sm:mb-1 block whitespace-nowrap">15-Day Live Window</span>
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider leading-none mb-0.5 sm:mb-1 block whitespace-nowrap">
+                        {selectedJob.durationDays ? `${selectedJob.durationDays}-Day Live Window` : "Live Window"}
+                      </span>
                       <span className="text-xs sm:text-sm font-extrabold text-indigo-700 block whitespace-nowrap">
-                        {getDaysRemaining(selectedJob)} Days Left
+                        {getDaysRemaining(selectedJob)} {getDaysRemaining(selectedJob) === 1 ? 'Day' : 'Days'} Left
                       </span>
                     </div>
                   </div>
@@ -991,9 +993,16 @@ ACADEMIC DEGREES & CERTIFICATIONS
                 <div className="space-y-4 pt-3 sm:pt-4 border-t border-slate-100">
                   <div>
                     <h3 className="font-extrabold text-slate-900 text-xs sm:text-sm mb-1.5 sm:mb-2 uppercase tracking-tight">Primary Job Profile</h3>
-                    <p className="text-xs text-slate-600 leading-relaxed font-sans whitespace-pre-line font-medium">
-                      {selectedJob.description.split(/\*\*(.*?)\*\*/g).map((part, i) => i % 2 === 1 ? <strong key={i} className="font-extrabold text-slate-900">{part}</strong> : part)}
-                    </p>
+                    {/<[a-z][\s\S]*>/i.test(selectedJob.description) ? (
+                      <div 
+                        className="text-xs text-slate-600 leading-relaxed font-sans whitespace-pre-line font-medium [&>strong]:font-extrabold [&>strong]:text-slate-900 [&>b]:font-extrabold [&>b]:text-slate-900 [&>p]:mb-2"
+                        dangerouslySetInnerHTML={{ __html: selectedJob.description }}
+                      />
+                    ) : (
+                      <p className="text-xs text-slate-600 leading-relaxed font-sans whitespace-pre-line font-medium">
+                        {selectedJob.description.split(/\*\*(.*?)\*\*/g).map((part, i) => i % 2 === 1 ? <strong key={i} className="font-extrabold text-slate-900">{part}</strong> : part)}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -1064,18 +1073,27 @@ ACADEMIC DEGREES & CERTIFICATIONS
         <div className="lg:col-span-5 bg-white rounded-xl sm:rounded-3xl border border-slate-200 p-2.5 sm:p-6 md:p-7 shadow-xs sm:shadow-sm space-y-4 sm:space-y-6 h-fit sticky lg:top-24">
           <div className="border-b border-slate-100 pb-2.5 sm:pb-3">
             <h2 className="font-extrabold text-slate-900 text-sm sm:text-base">
-              {selectedJob?.externalApplyUrl && selectedJob.externalApplyUrl.trim()
+              {qJobId && !selectedJob
+                ? "Connecting Application Portal"
+                : selectedJob?.externalApplyUrl && selectedJob.externalApplyUrl.trim()
                 ? "Company Career Portal"
                 : "Instant Application Form"}
             </h2>
             <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider ">
-              {selectedJob?.externalApplyUrl && selectedJob.externalApplyUrl.trim()
+              {qJobId && !selectedJob
+                ? "Verifying job details..."
+                : selectedJob?.externalApplyUrl && selectedJob.externalApplyUrl.trim()
                 ? `Direct application on ${selectedJob.company || "company"}'s portal`
                 : "Submit details to apply directly"}
             </p>
           </div>
 
-          {selectedJob?.externalApplyUrl && selectedJob.externalApplyUrl.trim() ? (
+          {qJobId && !selectedJob ? (
+            <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
+              <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Verifying Application Portal...</p>
+            </div>
+          ) : selectedJob?.externalApplyUrl && selectedJob.externalApplyUrl.trim() ? (
             <div className="bg-indigo-50/90 border-2 border-indigo-200 rounded-2xl p-4 sm:p-6 text-center space-y-3.5 animate-in fade-in duration-200">
               <div className="text-xs font-black text-indigo-950 uppercase tracking-tight">External Career Portal Opening</div>
               <p className="text-xs text-indigo-800 font-medium leading-relaxed">

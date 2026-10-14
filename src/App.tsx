@@ -1010,8 +1010,9 @@ ${adminCompanyName || "Your Company Admin"} Network`);
                 company: formatTitleCase(currentJob.company || mj.company),
                 experience: currentJob.experience || mj.experience,
                 status: currentJob.status || mj.status,
-                expiresAt: currentJob.expiresAt || mj.expiresAt,
-                durationDays: currentJob.durationDays || mj.durationDays,
+                expiresAt: mj.expiresAt || currentJob.expiresAt,
+                durationDays: mj.durationDays || currentJob.durationDays,
+                screeningQuestions: currentJob.screeningQuestions || mj.screeningQuestions,
                 createdAt: currentJob.createdAt || mj.createdAt,
                 externalApplyUrl: currentJob.externalApplyUrl || mj.externalApplyUrl
               };
